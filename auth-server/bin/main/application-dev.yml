@@ -1,0 +1,23 @@
+# Local development only. These values are NOT secrets and must never be used elsewhere.
+auth:
+  keys:
+    encryption-secret: dev-only-key-encryption-secret
+  clients:
+    web-bff:
+      secret: dev-web-bff-secret
+      # the BFF directly (8081) and the admin web dev server (5173, proxies to the BFF)
+      redirect-uris: ${AUTH_WEB_BFF_REDIRECT_URIS:http://localhost:8081/login/oauth2/code/cmt,http://localhost:5173/login/oauth2/code/cmt}
+      post-logout-redirect-uris: ${AUTH_WEB_BFF_LOGOUT_URIS:http://localhost:8081/,http://localhost:5173/}
+    jobs:
+      secret: dev-jobs-secret
+  # the admin web dev server shows its own sign-in screens
+  web:
+    login-url: ${AUTH_WEB_LOGIN_URL:http://localhost:5173/login}
+    allowed-origins: ${AUTH_WEB_ORIGINS:http://localhost:5173}
+  dev:
+    seed-test-accounts: true
+    test-password: Test@12345
+
+logging:
+  level:
+    kh.cmt: DEBUG

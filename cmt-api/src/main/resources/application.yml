@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: cmt-api
+  profiles:
+    default: dev
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cmt}
+    username: ${DB_USERNAME:cmt}
+    password: ${DB_PASSWORD:cmt_dev_password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      # Excel imports (at most 2 MB, checked again by the import); files go straight to object storage instead
+      max-file-size: 3MB
+      max-request-size: 3MB
+  autoconfigure:
+    # No default in-memory user; real auth comes from the JWT resource server (step 1.6).
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+server:
+  port: ${SERVER_PORT:8080}
+  # Behind nginx / a load balancer set FORWARD_HEADERS_STRATEGY=native so the client's real IP is used
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+cmt:
+  timezone: Asia/Phnom_Penh
+  school:
+    # The CMT school row inserted by V1__base.sql (step 0.5)
+    default-id: 00000000-0000-0000-0000-000000000001
+  security:
+    # The access tokens come from auth-server. The API only trusts tokens signed with its published keys
+    # and issued by this issuer; it never calls the auth server per request.
+    issuer: ${CMT_ISSUER:http://localhost:9200}
+    jwk-set-uri: ${CMT_JWK_SET_URI:${cmt.security.issuer}/oauth2/jwks}
+    # Lifetime of the auth server's access tokens: how long a "sign out everywhere" is remembered (SignOuts)
+    access-token-ttl: 15m
+  files:
+    # Object storage (S3 API): MinIO from infra/docker-compose.yml in development
+    endpoint: ${FILES_ENDPOINT:http://localhost:9000}
+    # The host the apps use in upload / download links (e.g. https://files.cmt.school); the endpoint when empty
+    public-endpoint: ${FILES_PUBLIC_ENDPOINT:}
+    access-key: ${FILES_ACCESS_KEY:cmt_minio}
+    secret-key: ${FILES_SECRET_KEY:cmt_minio_password}
+    bucket: ${FILES_BUCKET:cmt-files}
+    region: ${FILES_REGION:us-east-1}
+    upload-link-ttl: 15m
+    download-link-ttl: 5m
+  qr:
+    # Key that signs the gate QR codes (step 6.2), at least 32 characters; the app does not start without it.
+    # Keep it secret and stable: changing it makes every printed QR invalid.
+    secret: ${QR_SECRET:}
+  rate-limit:
+    enabled: true
+    # per signed-in user (callers without a valid token are counted per IP)
+    general:
+      capacity: 300
+      window: 1m
+    scan:
+      capacity: 20
+      window: 1m

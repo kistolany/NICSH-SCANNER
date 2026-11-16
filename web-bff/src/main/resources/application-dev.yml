@@ -1,0 +1,20 @@
+# Local development only. Not secrets; never use elsewhere.
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          cmt:
+            client-secret: dev-web-bff-secret
+            # The admin web dev server (Vite, 5173) proxies /api, /bff, /oauth2 and /login to this BFF, so the
+            # browser only ever sees 5173. BFF_PUBLIC_URL=http://localhost:8081 to use the BFF on its own.
+            redirect-uri: "${BFF_PUBLIC_URL:http://localhost:5173}/login/oauth2/code/{registrationId}"
+
+bff:
+  post-logout-redirect-uri: ${BFF_PUBLIC_URL:http://localhost:5173}/
+  cookie:
+    secure: false
+
+logging:
+  level:
+    kh.cmt: DEBUG

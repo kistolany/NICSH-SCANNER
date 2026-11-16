@@ -1,0 +1,22 @@
+# Production: all connection settings must be supplied as environment variables.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      password: ${REDIS_PASSWORD}
+management:
+  endpoint:
+    health:
+      show-details: never
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+logging:
+  level:
+    kh.cmt: INFO

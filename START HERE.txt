@@ -1,0 +1,17 @@
+HOW TO USE
+
+1. Copy this whole folder into your backend project, e.g. e:\NICS-Project\Backend\
+   You get:
+     docs\    -> BACKEND ARCHITECTURE - Spring Boot.md, BACKEND BUILD STEPS.md
+     design\  -> CMT Staff App v7.dc.html, CMT Admin Web.dc.html, DataTable.dc.html, support.js, assets\
+
+2. Open Claude Code in that folder and send:
+
+Read docs/BACKEND ARCHITECTURE - Spring Boot.md and docs/BACKEND BUILD STEPS.md fully.
+The design files are in design/ (read them to get every field and rule).
+We build ONE step at a time.
+Do STEP 0.1 only. When every "Done when" check passes, show me the result and stop.
+Do not start the next step until I say "next step".
+Keep docs/PROGRESS.md updated with every finished step.
+
+3. After each step: check it, then say "next step".

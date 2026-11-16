@@ -1,0 +1,146 @@
+﻿# Local dev: infra + the 3 backend apps. From this folder:
+#   docker compose up -d            start (first time builds the backend image, a few minutes)
+#   docker compose up -d --build    after changing backend code
+#   docker compose down             stop (data is kept)
+# Then run the admin web: cd admin-web && npm run dev   ->  http://localhost:5173
+name: cmt
+
+# Request log with the time each request took (docker compose logs cmt-api | findstr ms).
+# JAVA_OPTS: quick JIT only (like Gradle bootRun): starts and warms up much faster, plenty fast for local use.
+x-access-log: &access-log
+  JAVA_OPTS: -XX:TieredStopAtLevel=1
+  SERVER_TOMCAT_ACCESSLOG_ENABLED: "true"
+  SERVER_TOMCAT_ACCESSLOG_DIRECTORY: /dev
+  SERVER_TOMCAT_ACCESSLOG_PREFIX: stdout
+  SERVER_TOMCAT_ACCESSLOG_SUFFIX: ""
+  SERVER_TOMCAT_ACCESSLOG_FILE_DATE_FORMAT: ""
+  SERVER_TOMCAT_ACCESSLOG_BUFFERED: "false"
+  SERVER_TOMCAT_ACCESSLOG_PATTERN: "%{yyyy-MM-dd HH:mm:ss}t %m %U %s %{ms}Tms"
+
+# One image for the three backend apps: auth-server builds it, the other two reuse it (APP picks the jar)
+x-backend: &backend
+  image: cmt-backend:dev
+  pull_policy: never   # local image, never from Docker Hub
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  auth-server:
+    <<: *backend
+    build: ..
+    # built only when the image is missing; after code changes: docker compose up -d --build
+    pull_policy: missing
+    environment:
+      <<: *access-log
+      APP: auth-server
+      SPRING_PROFILES_ACTIVE: dev
+      AUTH_DB_URL: jdbc:postgresql://postgres:5432/cmt
+      REDIS_HOST: redis
+    ports:
+      - "9200:9200"
+
+  cmt-api:
+    <<: *backend
+    environment:
+      <<: *access-log
+      APP: cmt-api
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://postgres:5432/cmt
+      REDIS_HOST: redis
+      # tokens still say iss=http://localhost:9200; only the key download goes over the Docker network
+      CMT_JWK_SET_URI: http://auth-server:9200/oauth2/jwks
+      FILES_ENDPOINT: http://minio:9000
+      # upload / download links handed to the browser and the phone
+      FILES_PUBLIC_ENDPOINT: http://localhost:9000
+    ports:
+      - "8080:8080"
+
+  web-bff:
+    <<: *backend
+    environment:
+      APP: web-bff
+      SPRING_PROFILES_ACTIVE: dev
+      # Netty's request log; the last number is the time in ms
+      JAVA_OPTS: -XX:TieredStopAtLevel=1 -Dreactor.netty.http.server.accessLogEnabled=true
+      REDIS_HOST: redis
+      BFF_API_URI: http://cmt-api:8080
+      BFF_AUTH_INTERNAL_URL: http://auth-server:9200
+    ports:
+      - "8081:8081"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cmt}
+      POSTGRES_USER: ${POSTGRES_USER:-cmt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cmt_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-cmt_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-cmt_minio_password}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  pgadmin-data:

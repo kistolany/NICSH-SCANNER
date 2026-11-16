@@ -1,0 +1,12 @@
+# Local development: values come from the defaults in application.yml (infra/docker-compose.yml).
+management:
+  endpoint:
+    health:
+      show-details: always
+cmt:
+  qr:
+    # Development only (QRs printed with it are worthless anywhere else)
+    secret: ${QR_SECRET:dev-only-qr-signing-key-not-for-production-use}
+logging:
+  level:
+    kh.cmt: DEBUG

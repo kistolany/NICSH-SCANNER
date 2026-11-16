@@ -1,0 +1,76 @@
+spring:
+  application:
+    name: auth-server
+  profiles:
+    default: dev
+  datasource:
+    # Own schema "auth" in the same Postgres database as cmt-api (which uses "public")
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/cmt}
+    username: ${AUTH_DB_USERNAME:cmt}
+    password: ${AUTH_DB_PASSWORD:cmt_dev_password}
+    hikari:
+      schema: auth
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  flyway:
+    schemas: auth
+    default-schema: auth
+    create-schemas: true
+
+server:
+  port: ${AUTH_SERVER_PORT:9200}
+  # Behind nginx or a load balancer set FORWARD_HEADERS_STRATEGY=native so the real client IP is used
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+cmt:
+  timezone: Asia/Phnom_Penh
+  school:
+    default-id: 00000000-0000-0000-0000-000000000001
+
+auth:
+  # Must equal the "iss" claim the API expects (cmt-api validates it in step 1.6)
+  issuer: ${AUTH_ISSUER:http://localhost:9200}
+  keys:
+    # Encrypts signing keys at rest. No default: production must set it.
+    encryption-secret: ${AUTH_KEY_SECRET}
+  lockout:
+    max-attempts: 5
+    lock-duration: 15m
+    window: 15m
+  rate-limit:
+    enabled: true
+    # per IP address. Each group has its own bucket: password login, second-step codes, device change requests.
+    # Staff behind one school Wi-Fi share one IP; raise this if many people log in in the same minute.
+    login:
+      capacity: 10
+      window: 1m
+  # The admin web's own sign-in screens (login, 2-step code, new password). Blank = this server's plain pages.
+  web:
+    login-url: ${AUTH_WEB_LOGIN_URL:}
+    allowed-origins: ${AUTH_WEB_ORIGINS:}
+  two-factor:
+    issuer-name: CMT School
+    sms-code-ttl: 5m
+    sms-cooldown: 60s
+  tokens:
+    access-ttl: 15m
+    mobile-refresh-ttl: 30d
+    web-refresh-ttl: 8h
+  clients:
+    mobile:
+      redirect-uris: ${AUTH_MOBILE_REDIRECT_URIS:kh.cmt.staff:/oauth2redirect,https://oauth.pstmn.io/v1/callback}
+    web-bff:
+      secret: ${AUTH_WEB_BFF_SECRET}
+      redirect-uris: ${AUTH_WEB_BFF_REDIRECT_URIS:http://localhost:8081/login/oauth2/code/cmt}
+      post-logout-redirect-uris: ${AUTH_WEB_BFF_LOGOUT_URIS:http://localhost:8081/}
+    jobs:
+      secret: ${AUTH_JOBS_SECRET}

@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "CMT local",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "cmt",
+      "Username": "cmt",
+      "SSLMode": "prefer"
+    }
+  }
+}

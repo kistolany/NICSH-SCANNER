@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: web-bff
+  profiles:
+    default: dev
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  session:
+    # Idle time before the browser session (and the tokens in it) is dropped, until the first request after login;
+    # from then on the role's "session timeout" (Roles screen, token claim sess_min) applies.
+    timeout: 30m
+  security:
+    oauth2:
+      client:
+        registration:
+          cmt:
+            provider: cmt
+            client-id: cmt-web-bff
+            client-secret: ${BFF_CLIENT_SECRET}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            # Must match the redirect URI registered for cmt-web-bff on the auth server
+            redirect-uri: "${BFF_PUBLIC_URL:http://localhost:8081}/login/oauth2/code/{registrationId}"
+            scope: openid,profile
+        provider:
+          cmt:
+            # Explicit endpoints (no discovery call at startup, so the BFF can start before the auth server).
+            authorization-uri: ${BFF_AUTH_PUBLIC_URL:http://localhost:9200}/oauth2/authorize
+            token-uri: ${BFF_AUTH_INTERNAL_URL:http://localhost:9200}/oauth2/token
+            jwk-set-uri: ${BFF_AUTH_INTERNAL_URL:http://localhost:9200}/oauth2/jwks
+            user-name-attribute: sub
+
+server:
+  port: ${BFF_PORT:8081}
+  # Behind nginx or a load balancer set FORWARD_HEADERS_STRATEGY=native: the role's allowed IP ranges are checked
+  # against the browser's address, which is otherwise the proxy's
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+bff:
+  # cmt-api: where /api/** is sent
+  api-uri: ${BFF_API_URI:http://localhost:8080}
+  auth-server:
+    # as the browser sees it (logout redirect) and as the BFF reaches it (token revoke)
+    public-url: ${BFF_AUTH_PUBLIC_URL:http://localhost:9200}
+    internal-url: ${BFF_AUTH_INTERNAL_URL:http://localhost:9200}
+  post-logout-redirect-uri: ${BFF_PUBLIC_URL:http://localhost:8081}/
+  cookie:
+    name: CMTSESSION
+    # Must be true in staging/prod (HTTPS). Browsers accept Secure cookies on http://localhost, but curl does not.
+    secure: ${BFF_COOKIE_SECURE:true}

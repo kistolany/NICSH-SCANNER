@@ -1,0 +1,17 @@
+# Staging: all connection settings must be supplied as environment variables.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      password: ${REDIS_PASSWORD}
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+logging:
+  level:
+    kh.cmt: INFO
