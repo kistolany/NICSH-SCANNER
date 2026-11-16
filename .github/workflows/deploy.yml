@@ -5,6 +5,13 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy to EC2 after a successful build
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -16,6 +23,8 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
+      - name: Verify Docker is available for Testcontainers
+        run: docker info
       - name: Build and test
         run: |
           chmod +x gradlew
@@ -23,7 +32,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to AWS EC2 via SSH
